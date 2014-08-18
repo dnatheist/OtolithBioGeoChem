@@ -1,0 +1,347 @@
+---
+title: "Murray Cod Larval Clusters in the Murrumbidgee River 2013"
+author: "Alan Couch"
+date: "Thursday, August 14, 2014"
+output: html_document
+---
+
+In this analysis it is important to remember a few points when interpreting the analysis. Firstly, the larvae come from a nest some unknown distance **above** the site Name, not neccessarily at that site although that is where they were collected. Secondly, it is assumed that the female travelled an unknown distance upstream to deposit her eggs in the nest. It is not unknown however for females to travel downstream to spawn (citation needed). 
+
+It is also important to remember this analysis is a hypothesis generation exercise regarding how many nests are likely represented by the larvae sampled. It is not a post-hoc assignation therefore. The number of nests hypothesesised based on biogeochemistry will need to be validated by genetic analysis.
+
+The movement of the females upstream and the larval dispersal downstream conspire to confound interpretation of the spatial distribution based on biogeochemistry alone.
+
+It should also be remembered that this analysis will ultimately have both elements and C and N isotopes which may improve (or weaken) assignment to clusters.
+
+
+```{r, "Install Packages and Set Global Options", echo=FALSE, warning=FALSE, message=FALSE}
+library(knitr)
+library(sparcl)
+library(ape)
+library(phytools)
+library(psych)
+opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+##Import data 
+```{r,"Import Data and Rename some long variable names"}
+
+qslAllLarvaInfo <- read.csv("C:/Users/s428825/Google Drive/PhD Data Files/Analyses/CNtrial/qslAllLarvaInfo.csv")
+#Start with base data
+df<-data.frame(qslAllLarvaInfo)
+
+#Rename a few long variable names, mean otolith length and distance to AC for example. 
+names(df)[names(df) == 'Mean.Otolith.Length.is.in.Millimetres.for.comparison.with.Adults'] <- 'meanOL'
+names(df)[names(df) == 'Distance.to.Angle.Crossing..m.'] <- 'distAC'
+names(df)[names(df) == 'LarvalRecords.LarvaID'] <- 'LarvaID'
+```
+
+```{r, " "}
+# Pare Down to what the Variables needed for clustering
+df <- subset(df, YearOnly == 2013, select = c(LarvaID,Site.Name,meanOL,Delta13C,Delta15N))
+rownames(df) <- df$LarvaID
+df<-subset(df, select = -LarvaID)
+
+# Pare down records to those with delta 13 C values. ie:reduce rows 
+df <- subset(df, !is.na(Delta13C))
+
+#df<-subset(df, Site.Name != "Bullen Range")
+
+#Create Cluster
+distxy <- dist(df)
+hClusters <- hclust(distxy)
+
+#Basic Plot with 
+plot(hClusters,labels=(df$Site.Name), hang = -1)
+#and with larvaID
+plot(hClusters,labels=(df$row.names), hang = -1)
+
+# colors the leaves of a dendrogram
+y = cutree(hClusters, 12)
+ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Nests", branchlength = 3)
+
+# load code of A2R function
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
+# colored dendrogram
+op = par(bg = "#EFEFEF")
+A2Rplot(hClusters, k = 12, boxes = FALSE, col.up = "gray50")
+
+##Heatmap
+set.seed(143)
+##Remove non-numerics for matrix construction as Heatmap requires
+df <- subset(df, select = c(meanOL,Delta13C,Delta15N))
+dataMatrix<-as.matrix(df)
+heatmap(dataMatrix)
+
+##MDS
+d <- dist(df) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+#fit # view results
+
+# plot solution 
+x <- fit$points[,1]
+y <- fit$points[,2]
+
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
+text(x, y, labels = row.names(df), cex=.7)
+
+#K means test run
+kmeansObj <- kmeans(df,centers=10)
+names(kmeansObj)
+
+par(mar=rep(0.2,4))
+plot(df,col=kmeansObj$cluster,pch=19,cex=2)
+plot(kmeansObj$centers,col=1:10,pch=3,cex=3,lwd=3)
+```
+In this case there are `r nrow(df)` rows of larvae  `r row.names(df)`  and `r ncol(df)` variables `r names(df)` in the dataframe.
+
+##Cluster Analysis Based on Standardised Variables (Milligan and Cooper 1988) 
+
+In this case I have standardised the variables iaw Milligan et al 1988, (value/range) which gives more accurate assignation to clusters under a variety of conditions.
+
+```{r, echo=FALSE, "Standardise Data and then Cluster"}
+#Start with base data
+df<-data.frame(qslAllLarvaInfo)
+
+#Rename a few long variable names, mean otolith length and distance to AC for example. 
+names(df)[names(df) == 'Mean.Otolith.Length.is.in.Millimetres.for.comparison.with.Adults'] <- 'meanOL'
+names(df)[names(df) == 'Distance.to.Angle.Crossing..m.'] <- 'distAC'
+names(df)[names(df) == 'LarvalRecords.LarvaID'] <- 'LarvaID'
+
+# Pare Down to what the Variables needed for clustering
+df <- subset(df, YearOnly == 2013, select = c(LarvaID,Site.Name,meanOL,Delta13C,Delta15N))
+rownames(df) <- df$LarvaID
+df<-subset(df, select = -LarvaID)
+
+# Pare down records to those with delta 13 C values. ie:reduce rows 
+df <- subset(df, !is.na(Delta13C))
+
+df$smeanOL<-df$meanOL/(max(df$meanOL) - min(df$meanOL))
+df$sDelta13C<-df$Delta13C/(max(df$Delta13C) - min(df$Delta13C))
+df$sDelta15N<-df$Delta15N/(max(df$Delta15N) - min(df$Delta15N)) 
+
+df<-subset(df, select = c(Site.Name,smeanOL,sDelta13C,sDelta15N))
+
+#df<-subset(df, Site.Name != "Bullen Range")
+
+#Create Cluster
+distxy <- dist(df)
+hClusters <- hclust(distxy)
+
+#Basic Plot with 
+plot(hClusters,labels=(df$Site.Name), hang = -1)
+#and with larvaID
+plot(hClusters,labels=(df$row.names), hang = -1)
+
+   
+# colors the leaves of a dendrogram
+y = cutree(hClusters, 12)
+ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Nests", branchlength = 3)
+
+#########
+# load code of A2R function
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
+# colored dendrogram
+op = par(bg = "#EFEFEF")
+A2Rplot(hClusters, k = 12, boxes = FALSE, col.up = "gray50")
+
+
+##Heatmap
+set.seed(143)
+##Remove non-numerics for matrix construction as Heatmap requires
+df <- subset(df, select = c(smeanOL,sDelta13C,sDelta15N))
+dataMatrix<-as.matrix(df)
+heatmap(dataMatrix)
+
+##MDS
+d <- dist(df) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+#fit # view results
+
+# plot solution 
+x <- fit$points[,1]
+y <- fit$points[,2]
+
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
+text(x, y, labels = row.names(df), cex=.7)
+```
+
+In this case there are `r nrow(df)` rows ( `r row.names(df)` ) and `r ncol(df)` columns (`r names(df)`) in the dataframe.
+
+#This Time the Analysis Includes a estimate of Nest Location based on dispersal days and capture location
+
+This analysis includes an 'arbitrary' nest location calculation based on age of the larva as determined from otolith length, the time it is likely to have had available for dispersal (age - 7), and distance above the capture site calculated at 300 metres movement per day. The formula in r is as follows:
+
+```{r, eval=FALSE}
+#Create proxy Nest site variable called 'nest'.
+df$nest<-df$distAC-(df$OLEstimateAge-7)*300
+```
+
+##Cluster Analysis Based on raw Variables 
+
+```{r echo=FALSE, "Base Work including a nest site estimate"}
+
+# install.packages('sparcl')
+library(sparcl)
+library(ape)
+library(phytools)
+library(psych)
+
+qslAllLarvaInfo <- read.csv("C:/Users/s428825/Google Drive/PhD Data Files/Analyses/CNtrial/qslAllLarvaInfo.csv")
+#Start with base data
+df<-data.frame(qslAllLarvaInfo)
+
+#Rename a few long variable names, mean otolith length and distance to AC for example. 
+names(df)[names(df) == 'Mean.Otolith.Length.is.in.Millimetres.for.comparison.with.Adults'] <- 'meanOL'
+names(df)[names(df) == 'Distance.to.Angle.Crossing..m.'] <- 'distAC'
+names(df)[names(df) == 'LarvalRecords.LarvaID'] <- 'LarvaID'
+
+# Pare Down to what the Variables needed for clustering
+df <- subset(df, YearOnly == 2013, select = c(LarvaID,Site.Name,OLEstimateAge,distAC,Delta13C,Delta15N))
+
+#Create proxtNest site variable.
+df$nest<-df$distAC-(df$OLEstimateAge-7)*300
+
+rownames(df) <- df$LarvaID
+df<-subset(df, select = -LarvaID)
+
+# Pare down records to those with delta 13 C values. ie:reduce rows 
+df <- subset(df, !is.na(Delta13C))
+
+#Create Cluster
+distxy <- dist(df)
+hClusters <- hclust(distxy)
+
+#Basic Plot with 
+plot(hClusters,labels=(df$Site.Name), hang = -1)
+#and with larvaID
+plot(hClusters,labels=(df$row.names), hang = -1)
+
+# colors the leaves of a dendrogram
+y = cutree(hClusters, 12)
+ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Nests", branchlength = 3)
+
+#########
+# load code of A2R function
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
+# colored dendrogram
+op = par(bg = "#EFEFEF")
+A2Rplot(hClusters, k = 12, boxes = FALSE, col.up = "gray50")
+
+##Heatmap
+set.seed(143)
+##Remove non-numerics for matrix construction as Heatmap requires
+df <- subset(df, select = c(nest,Delta13C,Delta15N))
+dataMatrix<-as.matrix(df)
+heatmap(dataMatrix)
+
+##MDS
+d <- dist(df) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+#fit # view results
+
+# plot solution 
+x <- fit$points[,1]
+y <- fit$points[,2]
+
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
+text(x, y, labels = row.names(df), cex=.7)
+
+#K means test run
+kmeansObj <- kmeans(df,centers=10)
+names(kmeansObj)
+
+par(mar=rep(0.2,4))
+plot(df,col=kmeansObj$cluster,pch=19,cex=2)
+plot(kmeansObj$centers,col=1:10,pch=3,cex=3,lwd=3)
+```
+
+In this case there are `r nrow(df)` rows of larvae ( `r row.names(df)` ) and `r ncol(df)` variables (`r names(df)`) in the dataframe.
+
+##Cluster Analysis Based on Standardised Variables (Milligan and Cooper 1988) 
+
+In this case I have standardised the variables iaw Milligan et al 1988, (value/range) which gives more accurate assignation to clusters under a variety of conditions.
+
+An example of this code is:
+
+- df$sDelta13C<-df$Delta13C/(max(df$Delta13C) - min(df$Delta13C))
+
+**Needs verification from body of paper (abstract used).**
+
+```{r, echo=FALSE, "Standardise Data and then Cluster with Nest Site Estimate"}
+#Start with base data
+df<-data.frame(qslAllLarvaInfo)
+
+#Rename a few long variable names, mean otolith length and distance to AC for example. 
+names(df)[names(df) == 'Mean.Otolith.Length.is.in.Millimetres.for.comparison.with.Adults'] <- 'meanOL'
+names(df)[names(df) == 'Distance.to.Angle.Crossing..m.'] <- 'distAC'
+names(df)[names(df) == 'LarvalRecords.LarvaID'] <- 'LarvaID'
+
+# Pare Down to what the Variables needed for clustering
+df <- subset(df, YearOnly == 2013, select = c(LarvaID,Site.Name,OLEstimateAge,distAC,Delta13C,Delta15N))
+
+#Create proxtNest site variable.
+df$nest<-df$distAC-(df$OLEstimateAge-7)*300
+
+rownames(df) <- df$LarvaID
+df<-subset(df, select = -LarvaID)
+
+# Pare down records to those with delta 13 C values. ie:reduce rows 
+df <- subset(df, !is.na(Delta13C))
+
+#Standardise according to Milligan
+
+df$snest<-df$nest/(max(df$nest) - min(df$nest))
+df$sDelta13C<-df$Delta13C/(max(df$Delta13C) - min(df$Delta13C))
+df$sDelta15N<-df$Delta15N/(max(df$Delta15N) - min(df$Delta15N)) 
+
+df<-subset(df, select = c(Site.Name,snest,sDelta13C,sDelta15N))
+
+#df<-subset(df, Site.Name != "Bullen Range")
+
+#Create Cluster
+distxy <- dist(df)
+hClusters <- hclust(distxy)
+
+#Basic Plot with 
+plot(hClusters,labels=(df$Site.Name), hang = -1)
+#and with larvaID
+plot(hClusters,labels=(df$row.names), hang = -1)
+
+   
+# colors the leaves of a dendrogram
+y = cutree(hClusters, 12)
+ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Nests", branchlength = 3)
+
+#########
+# load code of A2R function
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
+# colored dendrogram
+op <- par(bg = "#EFEFEF")
+A2Rplot(hClusters, k = 12, boxes = FALSE, col.up = "gray50")
+
+
+##Heatmap
+set.seed(143)
+##Remove non-numerics for matrix construction as Heatmap requires
+df <- subset(df, select = c(snest,sDelta13C,sDelta15N))
+dataMatrix<-as.matrix(df)
+heatmap(dataMatrix)
+
+##MDS
+d <- dist(df) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+#fit # view results
+
+# plot solution 
+x <- fit$points[,1]
+y <- fit$points[,2]
+
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
+text(x, y, labels = row.names(df), cex=.7)
+
+rm(x); rm(y); rm(d); rm(fit); rm(distxy); rm(op)#cleanup temporary variables
+```
+
+In this case there are `r nrow(df)` rows (`r row.names(df)`)  and `r ncol(df)` columns (`r names(df)`) in the dataframe.
+
