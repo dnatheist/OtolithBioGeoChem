@@ -23,10 +23,11 @@ library(psych)
 opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 ```
 
-##Import data 
 ```{r,"Import Data and Rename some long variable names"}
 
 qslAllLarvaInfo <- read.csv("C:/Users/s428825/Google Drive/PhD Data Files/Analyses/CNtrial/qslAllLarvaInfo.csv")
+# Notice that this data comes from a database query that links three tables - collection, larvae and otolith records.
+
 #Start with base data
 df<-data.frame(qslAllLarvaInfo)
 
@@ -36,7 +37,10 @@ names(df)[names(df) == 'Distance.to.Angle.Crossing..m.'] <- 'distAC'
 names(df)[names(df) == 'LarvalRecords.LarvaID'] <- 'LarvaID'
 ```
 
-```{r, " "}
+#Including DC13, D15N and Mean Otolith Length
+## Analysis Based on raw Variables
+
+```{r, "Cluster Analysis Based on raw Variables with ID and mean OL"}
 # Pare Down to what the Variables needed for clustering
 df <- subset(df, YearOnly == 2013, select = c(LarvaID,Site.Name,meanOL,Delta13C,Delta15N))
 rownames(df) <- df$LarvaID
@@ -72,7 +76,7 @@ set.seed(143)
 df <- subset(df, select = c(meanOL,Delta13C,Delta15N))
 dataMatrix<-as.matrix(df)
 heatmap(dataMatrix)
-
+ 
 ##MDS
 d <- dist(df) # euclidean distances between the rows
 fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
@@ -84,6 +88,7 @@ y <- fit$points[,2]
 
 plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
 text(x, y, labels = row.names(df), cex=.7)
+
 
 #K means test run
 kmeansObj <- kmeans(df,centers=10)
@@ -264,7 +269,7 @@ In this case I have standardised the variables iaw Milligan et al 1988, (value/r
 
 An example of this code is:
 
-- df$sDelta13C<-df$Delta13C/(max(df$Delta13C) - min(df$Delta13C))
+- $$df$sDelta13C<-df$Delta13C/(max(df$Delta13C) - min(df$Delta13C))$$
 
 **Needs verification from body of paper (abstract used).**
 
@@ -306,12 +311,12 @@ hClusters <- hclust(distxy)
 #Basic Plot with 
 plot(hClusters,labels=(df$Site.Name), hang = -1)
 #and with larvaID
-plot(hClusters,labels=(df$row.names), hang = -1)
+plot(hClusters,labels=(df$row.names), hang = -1, main = "Chemistry and Nest Clusters")
 
    
 # colors the leaves of a dendrogram
 y = cutree(hClusters, 12)
-ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Nests", branchlength = 3)
+ColorDendrogram(hClusters, y = y, labels=df$Site.Name, main = "Chemistry and Nest Clusters", branchlength = 3)
 
 #########
 # load code of A2R function
@@ -320,13 +325,12 @@ source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
 op <- par(bg = "#EFEFEF")
 A2Rplot(hClusters, k = 12, boxes = FALSE, col.up = "gray50")
 
-
 ##Heatmap
 set.seed(143)
 ##Remove non-numerics for matrix construction as Heatmap requires
 df <- subset(df, select = c(snest,sDelta13C,sDelta15N))
 dataMatrix<-as.matrix(df)
-heatmap(dataMatrix)
+heatmap(dataMatrix, main = "Chemistry and Nest Clusters")
 
 ##MDS
 d <- dist(df) # euclidean distances between the rows
@@ -337,7 +341,7 @@ fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
 x <- fit$points[,1]
 y <- fit$points[,2]
 
-plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric  MDS",  type="n")
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Chemistry and Nest Clusters MDS",  type="n")
 text(x, y, labels = row.names(df), cex=.7)
 
 rm(x); rm(y); rm(d); rm(fit); rm(distxy); rm(op)#cleanup temporary variables
